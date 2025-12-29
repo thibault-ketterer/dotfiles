@@ -63,7 +63,7 @@ def mnormalize(o):
 
 
 
-fname = '/home/kit/.local/state/nvim/shada/main.shada'
+fname = os.path.expanduser('~/.local/state/nvim/shada/main.shada')
 # fname = '/home/kit/.local/share/nvim/shada/main.shada'
 # fname = sys.argv[1]
 # try:
