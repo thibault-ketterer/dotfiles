@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Check if both arguments are provided
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <file-extension> <minutes>"
+    echo "Example: $0 .pdf 40"
+    exit 1
+fi
+
+source_dir="~/mozdl/"
+ext="$1"
+minutes="$2"
+
+# Find matching files modified in the last specified minutes
+mapfile -t files < <(find "$source_dir" -maxdepth 1 -type f -name "*$ext" -mmin -"$minutes")
+
+if [ ${#files[@]} -eq 0 ]; then
+    echo "No *$ext files found in $source_dir modified within the last $minutes minutes."
+    exit 0
+fi
+
+# Display files to be moved
+echo "The following files will be moved to the current directory:"
+printf '• %s\n' "${files[@]##*/}"
+
+# Get user confirmation
+read -r -p "Proceed with move? [Y/n] " response
+response=${response,,}  # Convert to lowercase
+
+# Handle response
+if [[ "$response" =~ ^(n|no)$ ]]; then
+    echo "Operation canceled."
+    exit 0
+fi
+
+# Move files with interactive verification
+moved=0
+for file in "${files[@]}"; do
+    mv -iv "$file" . && ((moved++))
+done
+
+echo "Moved $moved file(s)."
