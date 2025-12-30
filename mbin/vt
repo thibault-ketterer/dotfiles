@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# TODO $EDITOR
+vt () 
+{ 
+    LAST_FILE=`ls -rt | tail -1`;
+    if [ -f $LAST_FILE ]; then
+        exec vim $LAST_FILE;
+    else
+        LAST_FILE=`ls -rt | tail -2 | head -1`;
+        if [ -f $LAST_FILE ]; then
+            exec vim $LAST_FILE;
+        fi;
+    fi
+}
+
+vt

@@ -1,0 +1,93 @@
+#!/bin/bash
+
+# mvt () 
+LIST_ONLY="false"
+MVT="true"
+MVN="false"
+MVS="false"
+
+STOP_FILTER=""
+
+# mvt downloads
+# lvn notes
+
+# install with
+# ln -s mvt2 lvn
+# ln -s mvt2 mvn
+# ln -s mvt2 lvs
+# ln -s mvt2 mvs
+# ln -s mvt2 lvt
+# ln -s mvt2 mvt
+#
+# command ends with 'vn'
+if [[ $(basename $0) == *vn ]];
+then
+	MVN="true"
+fi
+if [[ $(basename $0) == *vs ]];
+then
+	MVS="true"
+fi
+
+# command like lvt lvn ..
+if [[ $1 == "-n" ]] || [[ $(basename $0) == l* ]];
+then
+	LIST_ONLY="true"
+fi
+
+if [[ ! -z "$1" ]] && [[ "$1" != "-n" ]];
+then
+	STOP_FILTER="$1"
+fi
+
+if [[ "$MVN" == "true" ]];then
+	file="~/notes/"$(ls -rt ~/notes | tail -1)
+elif [[ "$MVS" == "true" ]];then
+	file="~/Desktop/"$(ls -rt ~/Desktop | tail -1)
+elif [[ "$MVT" == "true" ]];then
+	file="~/mozdl/"$(ls -rt ~/mozdl | tail -1)
+fi
+
+if [[ -f "$file" ]]; then
+	if [[ ! -z "$STOP_FILTER" ]];then
+		if echo "$file" | grep $STOP_FILTER;then
+			echo "filter approve"
+		else
+			echo "filtered out [$STOP_FILTER] [$file]"
+			exit 1
+		fi
+	fi
+	if [[ "$LIST_ONLY" == "false" ]];then
+		echo "file [$file]"
+		mv -iv "$file" .;
+	else
+		echo "DRY # mv -iv $file ."
+	fi
+else
+	echo "sorry $file is not a file, trying upper";
+	if [[ "$MVN" == "true" ]];then
+		file="~/notes/"$(ls -rt ~/notes | tail -2|head -1)
+	elif [[ "$MVS" == "true" ]];then
+		file="~/shots/"$(ls -rt ~/shots | tail -2|head -1)
+	elif [[ "$MVT" == "true" ]];then
+		file="~/mozdl/"$(ls -rt ~/mozdl | tail -2|head -1)
+	fi
+	if [[ -f "$file" ]]; then
+	        if [[ ! -z "$STOP_FILTER" ]];then
+	        	if echo "$file" | grep $STOP_FILTER;then
+	        		echo "filter approve"
+	        	else
+	        		echo "filtered out [$STOP_FILTER] [$file]"
+	        		exit 1
+	        	fi
+	        fi
+		if [[ "$LIST_ONLY" == "false" ]];then
+			mv -iv "$file" .;
+		else
+			echo "DRY #  mv -iv $file ."
+		fi
+	else
+		echo "sorry $file is not a file, I give up";
+	fi;
+fi
+
