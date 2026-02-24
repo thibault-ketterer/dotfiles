@@ -1,0 +1,25 @@
+#!/bin/bash
+mkdir -p ~/notes
+NOW=`date +%Y-%m-%d_%Hh%Mm%S`
+#fname=`mktemp -p ~/tmp note_${NOW}.XXXXXXXXXX`
+fname=~/tmp/${NOW}_note
+orig_fname=$fname
+
+echo fname=~/tmp/${NOW}_note
+echo vim -u NONE -c 'set paste' -c start $fname
+vim -u ~/.config/nvim/vimrc_minimal -c 'set paste' -c start $fname
+if test -s $fname;then
+  str=`python -c 'import sys; print("_".join(sys.argv[1:]))' $(head -1 $fname)`
+  str_final=$(basename $str)
+  echo ${fname/tmp/notes}
+  fname=${fname/tmp/notes}
+  echo mv "$orig_fname" "${fname/_note/_$str_final}"
+  mv "$orig_fname" "${fname/_note/_$str_final}"
+  echo
+  echo 
+  [ -x ~/mbin/osd ] && echo SAVE as "${fname/_note/_$str_final}" | ~/mbin/osd
+  echo SAVE as "${fname/_note/_$str_final}"
+  sleep 0.5
+else
+    rm "$fname"
+fi
