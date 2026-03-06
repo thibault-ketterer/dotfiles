@@ -1,0 +1,26 @@
+#!/bin/bash
+
+certcat ()
+{
+    [ -z "$1" ] && return 0;
+    while read line; do
+        if [ "${line//END}" != "$line" ]; then
+            txt="$txt$line\n";
+            printf -- "$txt" | openssl x509  -ext subjectAltName -dates -subject -issuer -noout;
+	    echo
+            txt="";
+        else
+            txt="$txt$line\n";
+        fi;
+    done < $1
+    # handle certificate with no \n at end
+    if [ "$txt" != "" ];then
+            txt="$txt$line\n";
+	    # printf "end"
+            printf -- "$txt" | openssl x509  -ext subjectAltName -dates -subject -issuer -noout;
+	    echo
+            txt="";
+    fi
+}
+
+certcat $1
