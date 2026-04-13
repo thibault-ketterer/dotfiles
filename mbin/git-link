@@ -1,0 +1,130 @@
+#!/bin/bash
+#
+# git-url — Convert a local file path to its remote Git web URL
+#
+# Usage:
+#   git-url <file>
+#   git-url <path/to/file>
+#
+# Works from inside or outside a git repository.
+# Handles SSH and HTTPS remotes, all branches, and relative/absolute paths.
+#
+# Release notes:
+#   1.0 — Full rewrite: robust error handling, edge case fixes, cleaner logic
+#   0.9 — Added relative path handling
+#   0.8 — Fixed behaviour when called from inside a git directory
+#
+
+set -euo pipefail
+
+# ── Argument check ────────────────────────────────────────────────────────────
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: $(basename "$0") <file>" >&2
+    exit 1
+fi
+
+TARGET="$1"
+
+# ── Resolve the working directory ─────────────────────────────────────────────
+#
+# If called from outside a git repo (e.g. with an absolute or relative path
+# pointing into one), cd into the file's directory so that all git commands
+# pick up the right repo context.
+
+if git rev-parse --show-toplevel > /dev/null 2>&1; then
+    IN_GIT=true
+else
+    IN_GIT=false
+    TARGET_DIR="$(dirname "$(readlink -f "$TARGET")")"
+    if ! cd "$TARGET_DIR" 2>/dev/null; then
+        echo "Error: cannot cd into '$TARGET_DIR'" >&2
+        exit 1
+    fi
+    if ! git rev-parse --show-toplevel > /dev/null 2>&1; then
+        echo "Error: '$TARGET' is not inside a git repository" >&2
+        exit 1
+    fi
+fi
+
+# ── Gather git context ────────────────────────────────────────────────────────
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+
+# Subdirectory prefix relative to repo root (empty string when at root)
+PREFIX="$(git rev-parse --show-prefix | sed 's|/$||')"
+
+BRANCH="$(git branch --show-current)"
+if [[ -z "$BRANCH" ]]; then
+    echo "Error: cannot determine current branch (detached HEAD?)" >&2
+    exit 1
+fi
+
+# ── Build the base HTTPS URL ──────────────────────────────────────────────────
+#
+# Converts SSH remotes (git@host:org/repo.git) to HTTPS
+# (https://host/org/repo/) so the URL can be opened in a browser.
+
+REMOTE_URL="$(git config --get remote.origin.url \
+    | sed \
+        -e 's|git@\([^:]*\):\(.*\)|\1/\2|' \
+        -e 's|^|https://|' \
+        -e 's|https://https://|https://|' \
+        -e 's|\.git$||' \
+        -e 's|$|/|')"
+
+# Simpler, more explicit SSH→HTTPS conversion:
+# Handle both "git@host:path" and already-https remotes cleanly.
+REMOTE_RAW="$(git config --get remote.origin.url)"
+if [[ "$REMOTE_RAW" == git@* ]]; then
+    # git@github.com:org/repo.git  →  https://github.com/org/repo/
+    REMOTE_URL="https://$(echo "$REMOTE_RAW" \
+        | sed -e 's|git@||' -e 's|:|/|' -e 's|\.git$||')/"
+else
+    # https://github.com/org/repo.git  →  https://github.com/org/repo/
+    REMOTE_URL="$(echo "$REMOTE_RAW" | sed 's|\.git$||')/"
+fi
+
+# ── Resolve the file path relative to the repo root ──────────────────────────
+#
+# git rev-parse --sq outputs a shell-quoted path. We strip the quoting and
+# the leading "-- " that rev-parse adds, then make the path relative to the
+# repo root so it can be appended to the URL.
+
+if [[ "$IN_GIT" == false ]]; then
+    # We cd'd into the file's directory, so resolve from there.
+    FILEPATH="$(git rev-parse --sq -- "$(basename "$TARGET")" \
+        | tr -d "'" \
+        | sed -e "s|^-- ||" -e "s|^$PREFIX/||" -e "s|^$ROOT_DIR/||")"
+else
+    FILEPATH="$(git rev-parse --sq -- "$TARGET" \
+        | tr -d "'" \
+        | sed -e "s|^-- ||" -e "s|^$PREFIX/||" -e "s|^$ROOT_DIR/||")"
+fi
+
+# Remove any lingering leading slash
+FILEPATH="${FILEPATH#/}"
+
+# ── Build the final URL ───────────────────────────────────────────────────────
+#
+# On master/main the prefix is already baked into the resolved path by
+# rev-parse --prefix. On other branches we need to prepend it manually
+# because rev-parse does not add it.
+
+BLOB="blob/${BRANCH}"
+
+if [[ "$BRANCH" == "master" || "$BRANCH" == "main" ]]; then
+    # rev-parse --prefix handles the subdirectory for us on default branches.
+    FULL_FILEPATH="$(git rev-parse --sq --prefix "${PREFIX}/" -- "$TARGET" \
+        | tr -d "'" \
+        | sed -e "s|^-- ||g" -e "s|^$ROOT_DIR/||")"
+    FULL_FILEPATH="${FULL_FILEPATH#/}"
+    echo "${REMOTE_URL}${BLOB}/${FULL_FILEPATH}"
+else
+    # On feature branches, prepend the prefix (subdir) explicitly.
+    if [[ -n "$PREFIX" ]]; then
+        echo "${REMOTE_URL}${BLOB}/${PREFIX}/${FILEPATH}"
+    else
+        echo "${REMOTE_URL}${BLOB}/${FILEPATH}"
+    fi
+fi
