@@ -239,8 +239,8 @@ function hcopy
         else
 		set n $argv[1]
         end
-	history -$n | tail -1
-	history -$n | tail -1 | copy
+	history -$n --max 1
+	history -$n --max 1 | copy
 end
 
 # alias hcopy='history -1 | copy'
