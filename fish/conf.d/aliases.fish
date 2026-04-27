@@ -111,20 +111,51 @@ function join_by
     echo (string join $argv[1] $argv[2..-1])
 end
 
-# GREP_COLORS='mt=00;34;01' hl 'vpn-only@' |  GREP_COLORS='mt=00;33;41' hl 'vpn@'
 function hl
-    if not status is-interactive >>/dev/null;
-        cat;
-        return;
+    if not status is-interactive >> /dev/null
+        cat
+        return
     end
-    set sav $GREP_COLOR
-    set -x GREP_COLORS 'mt=00;38;5;226'
-    # deprecated
-    # set GREP_COLOR '00;38;5;226';
-    # set pipes (join_by '|' $argv)
-    set -l pipes (string join '|' $argv)
-    grep -E -i --color=always "$pipes"'|$';
-    set GREP_COLOR $sav
+
+    # Named color aliases
+    set -l color_red      '38;5;196'
+    set -l color_green    '38;5;46'
+    set -l color_yellow   '38;5;226'
+    set -l color_blue     '38;5;33'
+    set -l color_magenta  '38;5;201'
+    set -l color_cyan     '38;5;51'
+    set -l color_orange   '38;5;214'
+    set -l color_pink     '38;5;213'
+    set -l color_white    '38;5;231'
+    set -l color_gray     '38;5;245'
+    # bold variants (classic 8-color)
+    set -l color_bred     '01;31'
+    set -l color_bgreen   '01;32'
+    set -l color_byellow  '01;33'
+
+    set -l color $color_yellow  # default
+
+    set -l args
+    set -l i 1
+    while test $i -le (count $argv)
+        switch $argv[$i]
+            case '-c'
+                set i (math $i + 1)
+                # resolve named alias or use raw value
+                set -l alias_var "color_$argv[$i]"
+                if set -q $alias_var
+                    set color $$alias_var
+                else
+                    set color $argv[$i]
+                end
+            case '*'
+                set args $args $argv[$i]
+        end
+        set i (math $i + 1)
+    end
+
+    set -l pipes (string join '|' $args)
+    GREP_COLORS="mt=00;$color" grep -E -i --color=always "$pipes"'|$'
 end
 
 function where
